@@ -1,0 +1,23 @@
+{
+  "name": "ipsec-ts",
+  "version": "1.0.0",
+  "description": "Layer 3 analyzer and protection for servers.",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Shawn Rapp (BadOPCode)",
+  "license": "MIT",
+  "dependencies": {
+    "@types/sqlite3": "^3.1.6",
+    "alsatian": "^3.2.1",
+    "json5": "^2.1.3",
+    "sqlite3": "^5.0.0",
+    "typescript": "^4.1.2"
+  },
+  "devDependencies": {
+    "@types/json5": "0.0.30"
+  }
+}
