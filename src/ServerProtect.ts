@@ -79,13 +79,9 @@ export class ServerProtect {
 
     private clientHandler = (client: net.Socket) => {
         client.write('IPSec audit... ');
-        const clientInfo = {
-            address: '',
-            ...client.address(),
-        };
 
         const connectionInfo: ConnectionRecord = {
-            ipAddress: clientInfo.address,
+            ipAddress: client.remoteAddress || '',
         };
 
         blkMgr.startConnect(connectionInfo)
