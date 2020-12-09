@@ -2,7 +2,7 @@
   "name": "ipsec-ts",
   "version": "1.0.0",
   "description": "Layer 3 analyzer and protection for servers.",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
     "start": "node dist",

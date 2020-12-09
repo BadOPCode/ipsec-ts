@@ -7,6 +7,11 @@ export interface ServerInfo {
     host?: string;
 }
 
+export interface Options {
+    onBannedConnection?: string;
+    displayAuditStatus?: boolean;
+}
+
 /**
  * ServerProtect sets a listner object that proxies a connection
  * to the real server to 
@@ -14,15 +19,17 @@ export interface ServerInfo {
 export class ServerProtect {
     public target: ServerInfo;
     private _listen: ServerInfo;
+    private _options: Options;
     private _info?: net.AddressInfo;
     private _isRunning: boolean;
     private _server: net.Server;
     private _closeCallback?: ()=>void | null;
     private _errorCallback?: (err: Error)=>void | null;
 
-    constructor(listen: ServerInfo, target: ServerInfo) {
+    constructor(listen: ServerInfo, target: ServerInfo, options: Options = {}) {
         this._listen = listen;
         this.target = target;
+        this._options = options;
         this._server = net.createServer(this.clientHandler);
         this._isRunning = false;
         this.clientHandler = this.clientHandler.bind(this);
@@ -78,7 +85,7 @@ export class ServerProtect {
     }
 
     private clientHandler = (client: net.Socket) => {
-        client.write('IPSec audit... ');
+        client.write('\r\nIPSec audit... ');
 
         const connectionInfo: ConnectionRecord = {
             ipAddress: client.remoteAddress || '',
@@ -86,7 +93,8 @@ export class ServerProtect {
 
         blkMgr.startConnect(connectionInfo)
             .then(() => {
-                client.write(' PASSED.\r')    
+                if (this._options.displayAuditStatus)
+                    client.write(' PASSED.\r\n');
                 const protectedServer = net.createConnection(this.target);
                 // protectedServer.setEncoding("utf-8");
                 // protectedServer.on("data", client.write);
@@ -109,8 +117,15 @@ export class ServerProtect {
                 console.log('new connection:', client.address());
             })
             .catch(() => {
-                client.write(' FAILED.\r');
-                new SoupShell(client);
+                if (this._options.displayAuditStatus)
+                    client.write(' FAILED.\r\n');
+                switch(this._options.onBannedConnection) {
+                    case 'soup':
+                        new SoupShell(client);
+                        break;
+                    default:
+                        client.end();
+                }
             });
     }
 }
