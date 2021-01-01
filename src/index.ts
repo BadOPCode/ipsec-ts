@@ -1,23 +1,48 @@
-import { blkMgr } from "./BlockManager";
-import { ServerInfo, ServerProtect } from "./ServerProtect";
-import json5 from "json5";
 import fs from "fs";
-import {ConfigInfo, IPSEC_DEFAULTS} from "./default";
+import path from "path";
+import { Duplex } from "stream";
+import config, { SwitchSetting } from "./Config";
 
-let config: ConfigInfo = IPSEC_DEFAULTS;
+const findModulePath = (modType: string, fileName: string): string => {
+    let foundModule: string = '';
+    if (fs.existsSync(path.join(".", modType, `${fileName}.js`))) {
+        foundModule = path.join(".", modType, `${fileName}.js`);
+    } else if (fs.existsSync(path.join(__dirname, modType, `${fileName}.js`))) {
+        foundModule = path.join(__dirname, modType, `${fileName}.js`);
+    }
+    return foundModule;
+};
 
-if (fs.existsSync('./setup.json5')) {
-    const data = fs.readFileSync('./setup.json5');
-    config = {
-        ...config,
-        ...json5.parse(data.toString()),
-    };    
+const manager = (switchSetup:SwitchSetting) => {
+    const listenerModule = findModulePath("Listeners", String(switchSetup.listener.type));
+    const targetModule = findModulePath("Targets", String(switchSetup.target?.type));
+    console.log(`listenerModule: ${listenerModule}  targetModule: ${targetModule}`);
+
+    if(listenerModule !== '') {
+        import(listenerModule).then(listner => {
+            const service = listner.default(switchSetup.listener);
+
+            if (targetModule !== '') { // listeners with target services
+                import(targetModule).then(target => {
+                    service.on('connection', (clientCon:Duplex) => {
+                        console.log('Connection detected...');
+                        const targetCon = target.default(switchSetup.target);
+                        targetCon.on('error', (err: Error)=>console.error(err));
+                        targetCon.on('started', ()=>{
+                            targetCon.setPipe(clientCon);
+                        });
+                    });
+                });
+            }
+            
+            service.on('error', (err: Error)=>console.error(err));
+            service.start();
+        });
+    }
+};
+
+if (config.switches) {
+    config.switches.forEach(manager);
+} else {
+    console.log('No switches defined.');
 }
-
-config.servers.forEach(serverInfo => {
-    const srv = new ServerProtect(serverInfo.listener, serverInfo.target);
-    srv.OnError(err => {
-        console.log({err});
-    })
-    srv.start();
-});

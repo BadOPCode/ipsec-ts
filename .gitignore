@@ -106,3 +106,5 @@ dist
 package-lock.json
 *.json5
 ipsec.db
+certs/
+.parcel-cache/

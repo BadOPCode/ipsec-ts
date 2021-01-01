@@ -3,6 +3,7 @@ import { blkMgr, ConnectionRecord } from "./BlockManager";
 import { SoupShell } from "./SoupShell";
 
 export interface ServerInfo {
+    type: string;
     port: number;
     host?: string;
 }

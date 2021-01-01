@@ -1,0 +1,9 @@
+@import "xterm/css/xterm.css";
+
+@font-face {
+    font-family: 'Web IBM EGA 8x8';
+    font-style: normal;
+    font-weight: 400;
+    font-size: 20px;
+    src: url(fonts/Web437_IBM_EGA_8x8.woff) format('woff');
+}
