@@ -5,7 +5,7 @@ import https from "https";
 
 import { Listener, ListenerSetting } from "../Net/Listener";
 import { ListenerSocket } from "./Socket";
-import { WebBase, WebBaseSetting } from "./WebBase";
+import { WebBase, WebBaseSetting } from "../Net/WebBase";
 
 export interface HttpRedirectSetting extends WebBaseSetting {
     redirectPattern: string;

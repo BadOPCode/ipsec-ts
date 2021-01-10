@@ -9,12 +9,16 @@ export interface ListenerSetting extends ConnectionSetting {
     }
 }
 
+export interface ClientConnection extends Duplex {
+    remoteAddress: string;
+}
+
 type ListenerCallbackStack = {
     [name: string]: (...args: any[]) => any;
     start: (startInfo?: any)=>void;
     stop: ()=>void;
     error: (err: Error)=>void;
-    connection: (client: Duplex) => void;
+    connection: (client: ClientConnection) => void;
 }
 
 export class Listener {
@@ -49,6 +53,10 @@ export class Listener {
     }
 
     protected handle(name: string, ...args: any[]) {
+        if (name === 'error') {
+            console.error('ERROR:', ...args);
+        }
+
         if (this._callbacks[name]) {
             this._callbacks[name](...args);
         }

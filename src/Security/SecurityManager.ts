@@ -1,5 +1,6 @@
 import net from "net";
 import { Database, OPEN_CREATE, OPEN_READWRITE, Statement } from "sqlite3";
+import { DateToUnix, UnixToDate } from "../Util/TimeDate";
 
 /**
  * ConnectionRecord is the data stored in database on connections.
@@ -7,7 +8,7 @@ import { Database, OPEN_CREATE, OPEN_READWRITE, Statement } from "sqlite3";
 export interface ConnectionRecord {
     ipAddress: string;
     lastConnect?: Date;
-    shortConnects?: number;
+    violationLevel?: number;
     banExpiration?: Date | null;
 }
 
@@ -16,11 +17,11 @@ export interface ConnectionRecord {
 interface ConnectionRow {
     ip_address: string;
     last_connect_time: number;
-    short_connects: number;
+    violation_level: number;
     ban_expiration: number;
 }
 
-export class BlockManager {
+export class SecurityManager {
     private _db: Database;
     private _errorCallback?: (err: Error) => void;
     static CONNECTION_LENGTH_THRESHOLD = 150; // 1 min.  Needs to be replaced with config.
@@ -29,14 +30,14 @@ export class BlockManager {
         CREATE TABLE IF NOT EXISTS connections (
             ip_address TEXT NOT NULL UNIQUE,
             last_connect_time INTEGER,
-            short_connects INTEGER,
+            violation_level INTEGER,
             ban_expiration INTEGER
         )`;
 
     constructor() {
         this._errorHandler = this._errorHandler.bind(this);
-        this._db = new Database(BlockManager.DB_LOCATION, OPEN_READWRITE | OPEN_CREATE, this._errorHandler);
-        this._db.run(BlockManager.CREATE_CONNECTIONS_TABLE, this._errorHandler);
+        this._db = new Database(SecurityManager.DB_LOCATION, OPEN_READWRITE | OPEN_CREATE, this._errorHandler);
+        this._db.run(SecurityManager.CREATE_CONNECTIONS_TABLE, this._errorHandler);
     }
 
     public onError(errorCallback: ()=>void) {
@@ -48,7 +49,7 @@ export class BlockManager {
      * @param newConnection 
      * @returns Boolean ban status on user
      */
-    public async startConnect(connectionInfo: ConnectionRecord): Promise<void> {
+    public async startConnect(connectionInfo: ConnectionRecord): Promise<ConnectionRecord> {
         const query = `
             SELECT * FROM connections WHERE ip_address='${connectionInfo.ipAddress}'
         `;
@@ -60,12 +61,13 @@ export class BlockManager {
                 if (row) {
                     connectionInfo = this._deserialize(row);
                     if (this._processAlreadyBanned(connectionInfo)) {
-                        reject();
+                        reject('User is temporarily banned.');
                         console.log(`${connectionInfo.ipAddress} - rejected beccause on ban list.`);
                     } else {
-                        resolve();
+                        connectionInfo = this._deserialize(row);
                         console.log(`${connectionInfo.ipAddress} - passed audit.`);
                         connectionInfo.lastConnect = new Date();
+                        resolve(connectionInfo);
                     }
                     
                     let rowInfo = this._serailize(connectionInfo);
@@ -73,29 +75,29 @@ export class BlockManager {
                       UPDATE connections
                       SET
                         last_connect_time=${rowInfo.last_connect_time},
-                        short_connects=${rowInfo.short_connects},
+                        violation_level=${rowInfo.violation_level},
                         ban_expiration=${rowInfo.ban_expiration}
                       WHERE
                         ip_address='${rowInfo.ip_address}';                    
                     `, this._errorHandler);    
                 } else {
-                    resolve();
-                    console.log(`${connectionInfo.ipAddress} - First time seen.`);
+                    console.log(`${connectionInfo.ipAddress} - Passed. First time seen.`);
                     connectionInfo.lastConnect = new Date();
-                    connectionInfo.shortConnects = 0;
+                    connectionInfo.violationLevel = 0;
                     connectionInfo.banExpiration = null;
+                    resolve(connectionInfo);
                     let rec = this._serailize(connectionInfo);
     
                     this._db.run(`
                         INSERT INTO connections(
                             ip_address,
                             last_connect_time,
-                            short_connects,
+                            violation_level,
                             ban_expiration
                         ) VALUES (
                             '${rec.ip_address}',
                             ${rec.last_connect_time},
-                            ${rec.short_connects},
+                            ${rec.violation_level},
                             ${rec.ban_expiration}
                         )`, 
                         this._errorHandler
@@ -110,23 +112,19 @@ export class BlockManager {
             SELECT * FROM connections WHERE ip_address='${connectionInfo.ipAddress}'
         `;
         this._db.get(query, (err, rowInfo) => {
-            if (rowInfo.last_connect_time + BlockManager.CONNECTION_LENGTH_THRESHOLD > this._DateToUnix(new Date())) {
-                console.log('Suspicious short connection time from ',connectionInfo.ipAddress);
-                rowInfo.short_connects++;
-
-                if (rowInfo.short_connects > 2) {
-                    rowInfo.ban_expiration = this._DateToUnix(new Date()) + 300;
-                }
+            const rec = this._serailize(connectionInfo);
+            if (rec.violation_level > 100) {
+                rec.ban_expiration = DateToUnix(new Date()) + (rec.violation_level * 60);
             }
 
             this._db.run(`
                 UPDATE connections
                     SET
-                        last_connect_time=${rowInfo.last_connect_time},
-                        short_connects=${rowInfo.short_connects},
-                        ban_expiration=${rowInfo.ban_expiration}
+                        last_connect_time=${rec.last_connect_time},
+                        violation_level=${rec.violation_level},
+                        ban_expiration=${rec.ban_expiration}
                     WHERE
-                        ip_address='${rowInfo.ip_address}';                    
+                        ip_address='${rec.ip_address}';                    
             `, this._errorHandler);
         });
     }
@@ -141,49 +139,36 @@ export class BlockManager {
         }
     }
 
-    private _DateToUnix(dateToConvert?: Date): number {
-        if (!dateToConvert) return 0;
-
-        return Math.floor(dateToConvert.getTime() / 1000);
-    }
-
-    private _UnixToDate(dateToConvert: number): Date {
-        let d: Date = new Date(0);
-        d.setUTCSeconds(dateToConvert);
-        return d;
-    }
-
     private _serailize(record: ConnectionRecord): ConnectionRow {
         return {
             ip_address: record.ipAddress,
-            last_connect_time: this._DateToUnix(record.lastConnect),
-            short_connects: record.shortConnects || 0,
-            ban_expiration: record.banExpiration ? this._DateToUnix(record.banExpiration) : 0,
+            last_connect_time: DateToUnix(record.lastConnect),
+            violation_level: record.violationLevel || 0,
+            ban_expiration: record.banExpiration ? DateToUnix(record.banExpiration) : 0,
         }
     }
 
     private _deserialize(record: ConnectionRow): ConnectionRecord {
         return {
             ipAddress: record.ip_address,
-            lastConnect: this._UnixToDate(record.last_connect_time),
-            shortConnects: record.short_connects,
-            banExpiration: this._UnixToDate(record.ban_expiration),
+            lastConnect: UnixToDate(record.last_connect_time),
+            violationLevel: record.violation_level,
+            banExpiration: UnixToDate(record.ban_expiration),
         }
     }
 
     /* returns new date of ban expiration */
     private _calculateBanTime(offenseTimes: number = 1) {
         let banExp = new Date();
-        let unixBan = this._DateToUnix(new Date()) + (60 * offenseTimes);
-        banExp = this._UnixToDate(unixBan);
+        let unixBan = DateToUnix(new Date()) + (60 * offenseTimes);
+        banExp = UnixToDate(unixBan);
         return banExp;
     }
 
     private _processAlreadyBanned(rec: ConnectionRecord): boolean {
-        console.log({rec});
         // user contacted system before ban has been lifted.
         if (rec.banExpiration && (new Date()).getTime() < rec.banExpiration.getTime()) {
-            rec.banExpiration = this._calculateBanTime(rec.shortConnects);
+            rec.banExpiration = this._calculateBanTime(rec.violationLevel);
             return true;
         }
 
@@ -191,4 +176,4 @@ export class BlockManager {
     }
 }
 
-export const blkMgr = new BlockManager();
+export const blkMgr = new SecurityManager();

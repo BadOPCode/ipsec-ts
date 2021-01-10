@@ -1,5 +1,5 @@
 import net from "net";
-import { blkMgr, ConnectionRecord } from "./BlockManager";
+import { blkMgr, ConnectionRecord } from "../Security/SecurityManager";
 import { SoupShell } from "./SoupShell";
 
 export interface ServerInfo {

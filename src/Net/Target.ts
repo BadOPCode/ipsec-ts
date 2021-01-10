@@ -22,6 +22,9 @@ export class Target {
     }
 
     protected handle(name: string, ...args: any[]) {
+        if (name === 'error') {
+            console.error('ERROR:', ...args);
+        }
         if (this._callbacks[name]) {
             this._callbacks[name](...args);
         }
@@ -32,5 +35,4 @@ export class Target {
     }
 
     public stop = () => {}
-
 }

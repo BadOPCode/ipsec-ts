@@ -1,7 +1,10 @@
 import net from "net";
 
-import { Listener, ListenerSetting } from "../Net/Listener";
+import { ClientConnection, Listener, ListenerSetting } from "../Net/Listener";
 
+interface SocketClient extends net.Socket {
+    ipAddress?: {} | net.AddressInfo;
+}
 export class ListenerSocket extends Listener {
     private _listener: net.Server | undefined;
 
@@ -32,7 +35,7 @@ export class ListenerSocket extends Listener {
         this._listener?.close(()=>this.handle('stop'));
     }
 
-    private _clientHandler = (client: net.Socket) => {
+    private _clientHandler = (client: SocketClient) => {
         this.handle('connection', client);
     }
 }

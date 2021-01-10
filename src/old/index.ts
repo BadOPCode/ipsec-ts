@@ -1,4 +1,4 @@
-import { blkMgr } from "./BlockManager";
+import { blkMgr } from "../Security/SecurityManager";
 import { ServerInfo, ServerProtect } from "./ServerProtect";
 import json5 from "json5";
 import fs from "fs";

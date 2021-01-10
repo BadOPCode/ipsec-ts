@@ -13,10 +13,10 @@ export class TargetSocket extends Target {
             host: address,
             port
         });
-        this._socket.on('close', (hadError:boolean)=>this.handle('close', hadError));
+        this._socket.on('close', (hadError:boolean)=>this.handle('stop', hadError));
         this._socket.on('error', (err: Error)=>this.handle('error', err));
         this._socket.on('data', (data:Buffer)=>this.handle('data', data));
-        this._socket.on('connect', ()=>this.handle('started'));
+        this._socket.on('connect', ()=>this.handle('start'));
     }
 
     public stop = () => {

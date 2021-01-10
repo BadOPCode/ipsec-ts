@@ -5,7 +5,7 @@ import https from "https";
 import fs from "fs";
 import path from "path";
 
-import { Listener, ListenerSetting } from "../Net/Listener";
+import { Listener, ListenerSetting } from "./Listener";
 
 export interface WebBaseSetting extends ListenerSetting {
     protocol: 'http' | 'https';

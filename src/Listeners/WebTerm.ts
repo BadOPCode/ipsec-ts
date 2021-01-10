@@ -4,24 +4,27 @@ import sock from "socket.io";
 import { Duplex } from "stream";
 import iconv from "iconv-lite";
 
-import { WebBase, WebBaseSetting } from "./WebBase";
+import { WebBase, WebBaseSetting } from "../Net/WebBase";
 
 
 export interface WebTermSettings extends WebBaseSetting {
     requestPattern: string;
 }
 
+interface WebClient extends Duplex {
+    remoteAddress?: string;
+}
 export class WebTerm extends WebBase {
     protected settings: WebTermSettings;
     protected io: sock.Server;
-    private _buffer: Duplex = new Duplex();
+    private _buffer: WebClient = new Duplex();
 
     constructor(settings: WebTermSettings) {
         super(settings);
         this.settings = settings;
         this.io = require('socket.io')(this.httpServer);
 
-        this.io.on('connection', socket => {
+        this.io.on('connection', (socket: sock.Socket)  => {
             this._buffer = new Duplex({
                 write(chunk, encoding, next) {
                     socket.emit('term', iconv.decode(chunk, 'CP437'));
@@ -30,12 +33,15 @@ export class WebTerm extends WebBase {
                 read(size) {
                 }
             });
+            this._buffer.remoteAddress = socket.client.request.connection.remoteAddress;
 
             this.handle('connection', this._buffer);
 
             socket.on('term', (data: any)=>{
                 this._buffer.push(data);
             });
+
+            socket.on('error', (err: Error) => console.error(`Error in socket:`, err));
         });
         
         this.map('get', '/js/webterm.js', (request, response) => {

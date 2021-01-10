@@ -108,3 +108,4 @@ package-lock.json
 ipsec.db
 certs/
 .parcel-cache/
+build/

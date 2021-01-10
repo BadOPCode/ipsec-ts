@@ -1,7 +1,9 @@
 import fs from "fs";
 import path from "path";
 import { Duplex } from "stream";
-import config, { SwitchSetting } from "./Config";
+import config, { SecuritySetting, SwitchSetting } from "./Config";
+import { ClientConnection } from "./Net/Listener";
+import { ConnectionRecord, SecurityManager } from "./Security/SecurityManager";
 
 const findModulePath = (modType: string, fileName: string): string => {
     let foundModule: string = '';
@@ -13,9 +15,27 @@ const findModulePath = (modType: string, fileName: string): string => {
     return foundModule;
 };
 
+const loadSecurityModules = (securityInfo: SecuritySetting[], client: ClientConnection, security: SecurityManager) => {
+    securityInfo.forEach(secInfo => {
+        if (typeof secInfo === 'string') {
+            const foundSecMod = findModulePath("Security", String(secInfo));
+            import(foundSecMod).then(SecMod => {
+                SecMod.default({type:secInfo}, client, security);
+            });
+        } else {
+            const foundSecMod = findModulePath("Security", String(secInfo.type));
+            import(foundSecMod).then(SecMod => {
+                SecMod.default(secInfo, client, security);
+            });
+        }
+    });
+}
+
 const manager = (switchSetup:SwitchSetting) => {
     const listenerModule = findModulePath("Listeners", String(switchSetup.listener.type));
     const targetModule = findModulePath("Targets", String(switchSetup.target?.type));
+    const security = new SecurityManager();
+
     console.log(`listenerModule: ${listenerModule}  targetModule: ${targetModule}`);
 
     if(listenerModule !== '') {
@@ -24,12 +44,17 @@ const manager = (switchSetup:SwitchSetting) => {
 
             if (targetModule !== '') { // listeners with target services
                 import(targetModule).then(target => {
-                    service.on('connection', (clientCon:Duplex) => {
-                        console.log('Connection detected...');
+                    service.on('connection', (clientCon: ClientConnection) => {
+                        console.log(`Connection detected from ${clientCon.remoteAddress}...`);
+                        if (switchSetup.security)
+                            loadSecurityModules(switchSetup.security, clientCon, security);
                         const targetCon = target.default(switchSetup.target);
                         targetCon.on('error', (err: Error)=>console.error(err));
-                        targetCon.on('started', ()=>{
+                        targetCon.on('start', () => {
                             targetCon.setPipe(clientCon);
+                        });
+                        targetCon.on('stop', () => {
+                            clientCon.end();
                         });
                     });
                 });

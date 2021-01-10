@@ -11,9 +11,17 @@ export interface ConnectionSetting {
     address?: string;
 }
 
+export type SecuritySetting = string | {
+    type: string,
+    options?: {
+        [key: string]: any,
+    },
+};
+
 export interface SwitchSetting {
     listener: ListenerSetting,
     target?: TargetSetting,
+    security?: SecuritySetting[],
 }
 
 export interface ConfigInfo {

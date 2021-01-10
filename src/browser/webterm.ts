@@ -6,7 +6,7 @@ import { io } from "socket.io-client"
 
 const terminal = new Terminal({
     // fontFamily: 'Web IBM EGA 8x8',
-    fontSize: 24,
+    // fontSize: 24,
     cols: 80,
     rows: 50,
 });
