@@ -17,7 +17,7 @@ interface WebClient extends Duplex {
 export class WebTerm extends WebBase {
     protected settings: WebTermSettings;
     protected io: sock.Server;
-    private _buffer: WebClient = new Duplex();
+    // private _buffer: WebClient = new Duplex();
 
     constructor(settings: WebTermSettings) {
         super(settings);
@@ -25,7 +25,7 @@ export class WebTerm extends WebBase {
         this.io = require('socket.io')(this.httpServer);
 
         this.io.on('connection', (socket: sock.Socket)  => {
-            this._buffer = new Duplex({
+            const buffer: WebClient = new Duplex({
                 write(chunk, encoding, next) {
                     socket.emit('term', iconv.decode(chunk, 'CP437'));
                     next();
@@ -33,12 +33,12 @@ export class WebTerm extends WebBase {
                 read(size) {
                 }
             });
-            this._buffer.remoteAddress = socket.client.request.connection.remoteAddress;
+            buffer.remoteAddress = socket.client.request.connection.remoteAddress;
 
-            this.handle('connection', this._buffer);
+            this.handle('connection', buffer);
 
             socket.on('term', (data: any)=>{
-                this._buffer.push(data);
+                buffer.push(data);
             });
 
             socket.on('error', (err: Error) => console.error(`Error in socket:`, err));

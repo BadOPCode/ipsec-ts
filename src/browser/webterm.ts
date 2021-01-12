@@ -36,4 +36,4 @@ sock.on('term', (msg: string | Uint8Array)=>{
 
 terminal.onData((data)=>{
     sock.emit('term', data);
-})
+});
