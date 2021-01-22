@@ -113,7 +113,7 @@ export class SecurityManager {
         `;
         this._db.get(query, (err, rowInfo) => {
             const rec = this._serailize(connectionInfo);
-            if (rowInfo.last_connect_time > rec.last_connect_time) rec.last_connect_time = rowInfo.last_connect_time;
+            rec.last_connect_time = DateToUnix(new Date());
             if (rowInfo.violation_level > rec.violation_level) rec.violation_level = rowInfo.violation_level;
             if (rowInfo.ban_expiration > rec.ban_expiration) rec.ban_expiration = rowInfo.ban_expiration;
 
