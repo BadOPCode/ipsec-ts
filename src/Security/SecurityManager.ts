@@ -167,8 +167,8 @@ export class SecurityManager {
 
     private _processAlreadyBanned(rec: ConnectionRecord): boolean {
         // user contacted system before ban has been lifted.
-        if (rec.banExpiration && (new Date()).getTime() < rec.banExpiration.getTime()) {
-            rec.banExpiration = this._calculateBanTime(rec.violationLevel);
+        if (rec.banExpiration && DateToUnix(new Date()) < rec.banExpiration.getTime()) {
+            rec.banExpiration = this._calculateBanTime(rec.violationLevel || 33);
             return true;
         }
 
